@@ -1,0 +1,7 @@
+.vscode
+
+# 排除 .n8n 目录下的所有内容，但保留 .gitkeep
+.n8n/*
+!.n8n/.gitkeep
+
+cookies/www.youtube.com_cookies.txt

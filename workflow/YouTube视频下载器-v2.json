@@ -1,0 +1,678 @@
+{
+  "name": "YouTube视频下载器-v2",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('extracted_text').item.json.extracted_text }}",
+        "options": {
+          "systemMessage": "# 视频与音频处理专家提示词\n\n## 核心职责\n\n你是一个专业的音视频处理助手。你负责解析用户的自然语言需求，提取链接，并严谨地调用工具完成操作。\n\n## 第一阶段：需求解析与参数提取\n\n### 意图判定\n\n* 获取信息：若用户需求模糊（如：看看这个）、只给了链接、或询问视频详情，先调用 get_video_info。\n* 明确下载：若明确要求下载或保存，直接调用对应的下载工具。\n\n### 参数处理\n\n* 从输入中提取 URL 并进行去重。\n* 链接获取优先级：当前对话 > 历史记录 > 追问用户。\n* 调用工具时必须带上 url 参数。\n\n---\n\n## 第二阶段：执行与反馈规范\n\n### 下载成功反馈\n\n任务完成后，必须报告以下信息：\n\n1. 视频标题：工具返回的原始标题。\n2. 存储路径：文件存放的唯一绝对目录。\n3. 文件清单：调用 os.listdir 得到的真实文件列表。\n4. 后续引导：提醒用户可以在飞书表格中查看记录。\n\n---\n\n## 第三阶段：异常处理协议\n\n### 错误熔断\n\n* 只要工具返回结果中包含 status: error 或任何错误描述，必须立即停止。\n* 严禁尝试重复调用或切换工具尝试。\n\n### 禁止幻觉\n\n* 不得编造路径，不得虚构文件清单。\n* 若执行失败，统一回复：抱歉，执行过程中出现错误：[具体错误原因]，并询问用户是否需要检查链接。\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1952,
+        -832
+      ],
+      "id": "cbb4ad19-d7d8-45e8-b701-3ad1769a5e41",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "events": [
+          "im.message.receive_v1"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.larkTrigger",
+      "typeVersion": 2,
+      "position": [
+        -2784,
+        -832
+      ],
+      "id": "f4225469-9ecf-49cc-9903-e30669a190ec",
+      "name": "Lark Trigger",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        -2208,
+        -608
+      ],
+      "id": "d3f1b307-c5e5-4bd4-90d7-85af18166b7f",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "b4u0GNJGdE5kCvBE",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n    // 1. 从输入中获取原始 content 字符串\n    // 假设路径是 $input.first().json.message.content\n    const rawContent = $('Lark Trigger').first().json.message.content;\n    \n    // 2. 解析 JSON 字符串\n    const contentObj = JSON.parse(rawContent);\n    \n    // 3. 提取 text 并清理首尾空格\n    const text = contentObj.text ? contentObj.text.trim() : \"\";\n    const hasUrl = /(https?:\\/\\/[^\\s]+)/g.test(text);\n\n    // 4. 返回全新的对象，不包含任何原始字段\n    return [{\n        json: {\n            extracted_text: text,\n            hasUrl: hasUrl\n        }\n    }];\n\n} catch (error) {\n    // 解析失败时的返回\n    return [{\n        json: {\n            extracted_text: \"\",\n            error: \"Parse Error: \" + error\n        }\n    }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2528,
+        -832
+      ],
+      "id": "a4ce6776-3b29-4958-86d3-31fc14581e09",
+      "name": "extracted_text"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "video_download_key",
+        "sessionTTL": "=0",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        -2080,
+        -608
+      ],
+      "id": "3ffba415-8168-48e5-865d-2bbd8036758b",
+      "name": "cache",
+      "credentials": {
+        "redis": {
+          "id": "i9Z6jZYbl14cKa7H",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "68d3904a-6d63-4652-8fd9-8887745b6823",
+              "name": "cache_key",
+              "value": "={{ $json.message.chat_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2656,
+        -832
+      ],
+      "id": "b4cd1942-3deb-4fcf-9f04-9d9a5a27912a",
+      "name": "constants"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "video_download_key"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -2240,
+        -928
+      ],
+      "id": "865bca1a-339c-4467-82d2-07a19da59a37",
+      "name": "clean cache",
+      "alwaysOutputData": false,
+      "credentials": {
+        "redis": {
+          "id": "i9Z6jZYbl14cKa7H",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b1793005-be50-4da9-bdb7-b91a15b3cada",
+              "leftValue": "={{ $json.hasUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2400,
+        -832
+      ],
+      "id": "e12f661c-079e-4a91-9ab6-bb4576f95306",
+      "name": "If",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "receive_id_type": "chat_id",
+        "receive_id": {
+          "__rl": true,
+          "value": "={{ $('Lark Trigger').item.json.message.chat_id }}",
+          "mode": "id"
+        },
+        "msg_type": "interactive",
+        "content": "={{ JSON.stringify(\n{\n  \"config\": { \"wide_screen_mode\": true },\n  \"elements\": [\n    {\n      \"tag\": \"markdown\",\n      \"content\": $json.output\n    }\n  ]\n}\n) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        -1648,
+        -832
+      ],
+      "id": "2e133f73-bd10-4a34-b03d-55e29e55fc03",
+      "name": "Send message",
+      "webhookId": "94ae0014-de15-4cc8-8d0a-d0aa5484f2e2",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "createRecord",
+        "app_token": {
+          "__rl": true,
+          "value": "AxGJbkUoIaQMfYsvbE5c9EW0n2d",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "tbl7vwkcKwB9O6ez",
+          "mode": "id"
+        },
+        "body": "={{ JSON.stringify(\n{\n\t\"fields\": {\n        \"execution_id\": $execution.id,\n        \"event_id\": $('Lark Trigger').item.json.event_id,\n\t\t\"open_id\": $('Lark Trigger').item.json.sender.sender_id.open_id,\n\t\t\"union_id\": $('Lark Trigger').item.json.sender.sender_id.union_id,\n\t\t\"create_time\": $('Lark Trigger').item.json.create_time,\n\t\t\"content\": $('extracted_text').item.json.extracted_text,\n        \"hasUrl\": $('extracted_text').item.json.hasUrl ? \"是\" : \"否\",\n\t\t\"response\": $json.output\n\t}\n} \n) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        -1648,
+        -992
+      ],
+      "id": "73ec328a-eeae-4510-863e-669fd759d9db",
+      "name": "log",
+      "webhookId": "193d4399-bd2f-40df-94ef-512a051611ed",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "用于获取视频的元数据（标题、发布日期、时长、封面图 URL）。当用户只想了解内容或作为下载前的确认时使用。",
+        "workflowId": {
+          "__rl": true,
+          "value": "DbmLm4SoJXGWVVcb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/DbmLm4SoJXGWVVcb",
+          "cachedResultName": "YouTube视频下载的子流程-v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "type": "get_info",
+            "url": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('url', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -1952,
+        -608
+      ],
+      "id": "602c0eb3-b8aa-4df1-b78b-41ce9cb6931b",
+      "name": "get_video_info"
+    },
+    {
+      "parameters": {
+        "description": "下载最高画质的视频（含音频和字幕）。适用于用户明确要求“下载视频”或“看高清视频”时。文件同样存放于唯一的临时目录。",
+        "workflowId": {
+          "__rl": true,
+          "value": "DbmLm4SoJXGWVVcb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/DbmLm4SoJXGWVVcb",
+          "cachedResultName": "下载的视频子流程"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "type": "download_video",
+            "url": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('url', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -1824,
+        -608
+      ],
+      "id": "e30bd26a-302a-45d0-900b-ae6972227d65",
+      "name": "download_video"
+    },
+    {
+      "parameters": {
+        "description": "下载视频中的音频流。默认下载最高音质，并配套下载封面图片和中英文字幕。文件将存放在一个以 UUID 命名的唯一临时目录中。",
+        "workflowId": {
+          "__rl": true,
+          "value": "DbmLm4SoJXGWVVcb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/DbmLm4SoJXGWVVcb",
+          "cachedResultName": "YouTube视频下载的子流程-v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "type": "download_audio",
+            "url": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('url', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -1696,
+        -608
+      ],
+      "id": "026dc04e-a24a-4eda-b293-422bbab280d6",
+      "name": "dowload_audio"
+    },
+    {
+      "parameters": {
+        "description": "查询已下载的文件。",
+        "workflowId": {
+          "__rl": true,
+          "value": "DbmLm4SoJXGWVVcb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/DbmLm4SoJXGWVVcb",
+          "cachedResultName": "下载的视频子流程"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('query', ``, 'string') }}",
+            "type": "search"
+          },
+          "matchingColumns": [
+            "query"
+          ],
+          "schema": [
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -1568,
+        -608
+      ],
+      "id": "a1c6f306-419c-4200-9841-6bf1b16a91e7",
+      "name": "search"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2080,
+        -832
+      ],
+      "id": "4e76961c-24a7-4147-9ecd-c136914ba629",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "log",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lark Trigger": {
+      "main": [
+        [
+          {
+            "node": "constants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extracted_text": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cache": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "constants": {
+      "main": [
+        [
+          {
+            "node": "extracted_text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "clean cache": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "clean cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "get_video_info": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_video": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "dowload_audio": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Shanghai",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "b26300fe-6ae8-4d2e-b64b-6bca83413d01",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87c5468c68acc2763dd134022a22888a4c71833e945f0b8294dfe741e5a4ccc5"
+  },
+  "id": "CjMenGEIMTHd3zc5",
+  "tags": []
+}

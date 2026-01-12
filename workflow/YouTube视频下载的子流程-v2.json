@@ -1,0 +1,931 @@
+{
+  "name": "YouTube视频下载的子流程-v2",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "type"
+            },
+            {
+              "name": "url"
+            },
+            {
+              "name": "query"
+            }
+          ]
+        }
+      },
+      "id": "c055762a-8fe7-4141-a639-df2372f30060",
+      "typeVersion": 1.1,
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        208,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "get_info",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7146d9fa-cf2b-4dfb-a69d-8fdf0ffa944b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_info"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "996c3c2c-43da-4fd9-ac51-a5da6f936c16",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "download_video",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "download_video"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a4871807-5590-4ae5-9c4f-6c043de1855e",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "download_audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "dowload_audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c4a6ecaa-d7e9-4bf5-8ed4-99bdf530a63e",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "search",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "search"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        -96
+      ],
+      "id": "ccf153ad-ca80-445d-b235-74307b25c101",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "import yt_dlp\nimport json\n\n# 1. 提取 Agent 传入的 URL\ntry:\n    video_url = _items[0][\"json\"][\"url\"]\nexcept:\n    video_url = _items[0][\"json\"]\n\nprint(video_url)\ndef main(url):\n    if not url or \"http\" not in str(url):\n        return json.dumps({\"status\": \"error\", \"message\": \"未提供有效的 URL\"}, ensure_ascii=False)\n\n    ydl_opts = {\n        'proxy': \"http://172.24.96.1:23333\",\n        'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n        'quiet': True,\n        'skip_download': True,\n    }\n    \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=False)\n            \n            # 2. 构造元数据字典\n            result = {\n                \"status\": \"success\",\n                \"title\": info.get(\"title\"),\n                \"uploader\": info.get(\"uploader\"),\n                \"duration\": info.get(\"duration\"),\n                \"duration_string\": info.get(\"duration_string\"),\n                \"upload_date\": info.get(\"upload_date\"),\n                \"thumbnail\": info.get(\"thumbnail\"),\n                \"url\": url\n            }\n            print(result)\n            \n            # 3. 关键：将字典序列化为字符串返回\n            # text = json.dumps(result, ensure_ascii=False)\n            return [ {\"json\": result }]\n            \n    except Exception as e:\n        # 捕获 yt-dlp 报错（如网络问题或链接失效）\n        error_result = {\"status\": \"error\", \"message\": f\"获取信息失败: {str(e)}\"}\n        # return json.dumps(error_result, ensure_ascii=False)\n        return [ {\"json\": error_result } ]\n\n# 执行函数并返回结果字符串\nreturn main(video_url)"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        -256
+      ],
+      "id": "2d6fc92f-b177-4970-b0b3-1ba2ed8be784",
+      "name": "get_video_info"
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "updateRecord",
+        "app_token": {
+          "__rl": true,
+          "value": "AxGJbkUoIaQMfYsvbE5c9EW0n2d",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "tblC1PqddPncaRPu",
+          "mode": "id"
+        },
+        "record_id": "={{ $json.items[0].record_id }}",
+        "body": "={\n\"fields\": {{ $('Merge').item.json.fields.toJsonString() }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        1648,
+        -64
+      ],
+      "id": "38460acc-e693-474d-bd16-db775e4c618c",
+      "name": "update",
+      "webhookId": "193d4399-bd2f-40df-94ef-512a051611ed",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "createRecord",
+        "app_token": {
+          "__rl": true,
+          "value": "AxGJbkUoIaQMfYsvbE5c9EW0n2d",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "tblC1PqddPncaRPu",
+          "mode": "id"
+        },
+        "body": "={\n\"fields\": {{ $('Merge').item.json.fields.toJsonString() }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        1648,
+        -256
+      ],
+      "id": "a5c04bd4-9164-4d74-b974-a7430b9b7d73",
+      "name": "insert",
+      "webhookId": "193d4399-bd2f-40df-94ef-512a051611ed",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1344,
+        -160
+      ],
+      "id": "874a79c4-59d3-4888-be99-114e880c6761",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "searchRecords",
+        "app_token": {
+          "__rl": true,
+          "value": "AxGJbkUoIaQMfYsvbE5c9EW0n2d",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "tblC1PqddPncaRPu",
+          "mode": "id"
+        },
+        "body": "={\n\t\"automatic_fields\": false,\n    \"fields\": [],\n\t\"filter\": {\n\t\t\"conditions\": [\n\t\t\t{\n\t\t\t\t\"field_name\": \"视频URL\",\n\t\t\t\t\"operator\": \"contains\",\n\t\t\t\t\"value\": [\n\t\t\t\t\t\"{{ $json.query }}\"\n\t\t\t\t]\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"field_name\": \"视频URL\",\n\t\t\t\t\"operator\": \"contains\",\n\t\t\t\t\"value\": [\n\t\t\t\t\t\"{{ $json.query.toLowerCase() }}\"\n\t\t\t\t]\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"field_name\": \"视频标题\",\n\t\t\t\t\"operator\": \"contains\",\n\t\t\t\t\"value\": [\n\t\t\t\t\t\"{{ $json.query }}\"\n\t\t\t\t]\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"field_name\": \"视频标题\",\n\t\t\t\t\"operator\": \"contains\",\n\t\t\t\t\"value\": [\n\t\t\t\t\t\"{{ $json.query.toLowerCase() }}\"\n\t\t\t\t]\n\t\t\t}\n\t\t],\n\t\t\"conjunction\": \"or\"\n\t}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        656,
+        128
+      ],
+      "id": "96989212-8be2-4620-95fd-6f99c2ae6bd5",
+      "name": "search",
+      "webhookId": "c11d69e2-4b19-4bca-81d6-68b03e97e68f",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "include": "allOtherFields",
+        "options": {
+          "destinationFieldName": "item"
+        }
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        128
+      ],
+      "id": "83d0813a-c6c3-4a46-87b2-3b31cf6e5ef2",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ed9a24f8-854f-4734-b51e-baa80c5e9e12",
+              "name": "response",
+              "value": "={{ $('Merge').item.json.fields }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1792,
+        -160
+      ],
+      "id": "011d6487-2683-4f0a-bc63-2dff364713e7",
+      "name": "Output"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0b180262-3f92-45b0-8f36-3bfe52899a47",
+              "name": "response",
+              "value": "={{ $json.item }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1168,
+        128
+      ],
+      "id": "2bd2e4c2-fc81-4087-8551-0b827594b29d",
+      "name": "Output1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "65e799b7-231d-40e3-896e-8dd3eb99f7f4",
+              "name": "items",
+              "value": "={{ \n$json.items.map(i => Object.entries(i.fields).reduce(\n  (acc, [key, value]) => {\n    acc[key] = Array.isArray(value) ? value[0]?.text : value;\n    return acc;\n  },\n  {})\n) \n}}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        128
+      ],
+      "id": "2cf06c97-9067-4cd2-8d6a-1cf23a796df4",
+      "name": "查询结果扁平"
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "searchRecords",
+        "app_token": {
+          "__rl": true,
+          "value": "AxGJbkUoIaQMfYsvbE5c9EW0n2d",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "tblC1PqddPncaRPu",
+          "mode": "id"
+        },
+        "body": "={\n\t\"automatic_fields\": false,\n    \"fields\": [],\n\t\"filter\": {\n\t\t\"conditions\": [\n\t\t\t{\n\t\t\t\t\"field_name\": \"视频URL\",\n\t\t\t\t\"operator\": \"is\",\n\t\t\t\t\"value\": [\n\t\t\t\t\t\"{{ $json.url }}\"\n\t\t\t\t]\n\t\t\t}\n\t\t],\n\t\t\"conjunction\": \"and\"\n\t}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        576,
+        -240
+      ],
+      "id": "e8e991e7-7fe3-4006-82c7-c33aa054a0eb",
+      "name": "get1",
+      "webhookId": "c11d69e2-4b19-4bca-81d6-68b03e97e68f",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "searchRecords",
+        "app_token": {
+          "__rl": true,
+          "value": "AxGJbkUoIaQMfYsvbE5c9EW0n2d",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "tblC1PqddPncaRPu",
+          "mode": "id"
+        },
+        "body": "={\n\t\"automatic_fields\": false,\n    \"fields\": [],\n\t\"filter\": {\n\t\t\"conditions\": [\n\t\t\t{\n\t\t\t\t\"field_name\": \"视频URL\",\n\t\t\t\t\"operator\": \"is\",\n\t\t\t\t\"value\": [\n\t\t\t\t\t\"{{ $json.url }}\"\n\t\t\t\t]\n\t\t\t}\n\t\t],\n\t\t\"conjunction\": \"and\"\n\t}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        576,
+        -64
+      ],
+      "id": "293c4571-f2e4-49ad-b5c1-5edfa44e7188",
+      "name": "get2",
+      "webhookId": "c11d69e2-4b19-4bca-81d6-68b03e97e68f",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c493a325-05ba-4f02-bf34-c7ad9c0131b4",
+              "leftValue": "={{ $json.items }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        -240
+      ],
+      "id": "6a5d83c0-63a1-4e80-8b27-3f84ec8b6ff2",
+      "name": "is empty1"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "import yt_dlp\nimport json\nimport os\nimport uuid\n\nfrom datetime import datetime\n\n# 1. 提取 Agent 传入的 URL\ntry:\n    video_url = _items[0][\"json\"][\"url\"]\n    action = _items[0][\"json\"][\"type\"]\nexcept:\n    video_url = _items[0][\"json\"]\n    action = \"download_video\"\n\nprint(video_url)\n\ndef main(url):\n    if not url or \"http\" not in str(url):\n        text = json.dumps({\"status\": \"error\", \"message\": \"无效的 URL\"}, ensure_ascii=False)\n        return text\n\n    # 2. 创建唯一存放目录\n    unique_id = str(uuid.uuid4())[:4]\n    ts = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    base_dir = f\"downloads/yt_audio_{ts}_{unique_id}\"\n    os.makedirs(base_dir, exist_ok=True)\n    \n    # 3. 配置 yt-dlp 参数 (下载最高画质视频)\n    if action == \"download_video\":\n        ydl_opts = {\n            'proxy': \"http://172.24.96.1:23333\",\n            'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n            'format': 'bestvideo+bestaudio/best',  # 合并最佳视轨和音轨\n            'merge_output_format': 'mp4',          # 强制封装为 mp4\n            'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n            'windowsfilenames': True,    # 仅限制 Windows 不允许的特殊字符，但允许中文\n            'writesubtitles': True,                # 下载字幕\n            'subtitleslangs': ['zh-Hans', 'en'],\n            'writethumbnail': True,                # 下载封面\n        }\n    else:\n        # 3. 配置 yt-dlp 参数 (仅音频，不转码)\n        ydl_opts = {\n            'proxy': \"http://172.24.96.1:23333\",\n            'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n          \n            'format': 'bestaudio/best',             # 获取最佳音频流\n            'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n            #'restrictfilenames': True,\n            'windowsfilenames': True, # 仅限制 Windows 不允许的特殊字符，但允许中文\n            'noplaylist': True,\n          \n            'writesubtitles': True,                 # 下载字幕\n            'writeautomaticsub': True,              # 自动生成字幕\n            'subtitleslangs': ['zh-Hans', 'en'],\n          \n            #'writethumbnail': True,                 # 下载封面图\n            \n            # 必须加上 FFmpeg 提取，这样即使下回来的是 webm 也能转成 m4a\n            'postprocessors': [{\n                'key': 'FFmpegExtractAudio',\n                'preferredcodec': 'm4a',\n                'preferredquality': '192',\n            }],\n      \n            'extractor_args': {\n                'youtube': {\n                    'player_client': ['android', 'web'],\n                    # 增加这一行可以减少被识别为机器人的概率\n                    'skip': ['dash', 'hls'],\n                }\n            },\n        }\n        \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=True)\n            files = os.listdir(base_dir)\n            files.sort()\n            \n            # 4. 构造结果字典\n            result = {\n                \"status\": \"success\",\n                \"uploader\": info.get(\"uploader\"),\n                \"duration\": info.get(\"duration\"),\n                \"duration_string\": info.get(\"duration_string\"),\n                \"upload_date\": info.get(\"upload_date\"),\n                \"thumbnail\": info.get(\"thumbnail\"),\n                \"type\": action,\n                \"title\": info.get(\"title\"),\n                \"directory\": base_dir,\n                \"files\": files,\n                \"url\": url,\n                \"ext\": info.get(\"ext\")  # 原始后缀名\n            }\n            # 5. 返回 JSON 字符串\n            #text = json.dumps(result, ensure_ascii=False)\n            return [ {\"json\": result } ]\n            \n    except Exception as e:\n        error_result = {\"status\": \"error\", \"message\": f\"视频下载失败: {str(e)}\"}\n        #text = json.dumps(error_result, ensure_ascii=False)\n        return [ {\"json\": error_result } ]\n\n# 执行并返回\nreturn main(video_url)"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        -80
+      ],
+      "id": "bd230893-3e06-49ed-aa5b-ac562336ba18",
+      "name": "download"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n\"action\": \"insert\",\n\"fields\": {\n  \"视频URL\": \"{{ $json.url }}\",\n  \"视频标题\": \"{{ $json.title }}\",\n  \"视频时长\": \"{{ $json.duration_string }}\",\n  \"duration\": {{ $json.duration }},\n  \"创建人\": \"{{ $json.uploader }}\",\n  \"创建时间\": \"{{ $json.upload_date }}\"\n}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1168,
+        -256
+      ],
+      "id": "4cbf879e-d31e-4819-a480-21f18d789ef2",
+      "name": "fields1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n\"action\": \"{{ $('get2').item.json.items.isEmpty() ? \"insert\" : \"update\" }}\",\n\"record_id\": \"{{ $('get2').item.json.items[0].record_id }}\",\n\"fields\": {\n  \"视频URL\": \"{{ $json.url }}\",\n  \"视频标题\": \"{{ $json.title }}\",\n  \"视频时长\": \"{{ $json.duration_string }}\",\n  \"duration\": {{ $json.duration }},\n  \"创建人\": \"{{ $json.uploader }}\",\n  \"创建时间\": \"{{ $json.upload_date }}\",\n  \"本地保存路径\": \"{{ $json.files.map(f => $json.directory + \"/\" + f).join(\"\\n\") }}\",\n  \"下载时间\": \"{{ $now.toISO() }}\"\n}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1168,
+        -80
+      ],
+      "id": "357804fe-066f-449f-87ff-b695c92601d5",
+      "name": "fields2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c493a325-05ba-4f02-bf34-c7ad9c0131b4",
+              "leftValue": "={{ $json.items }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "empty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "4d6aab8e-fc5c-45e4-bae6-c0554c7822bf",
+              "leftValue": "={{ $json.items[0].fields['本地保存路径'] || [] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        -64
+      ],
+      "id": "6b32de14-e6be-44f3-a748-55c5774c60c9",
+      "name": "is empty"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4ca43cc2-67f1-482c-86a0-27288267e3b1",
+              "name": "type",
+              "value": "={{ $('Switch').item.json.type }}",
+              "type": "string"
+            },
+            {
+              "id": "1b11537c-f31b-45a6-923d-fca544dc24c0",
+              "name": "url",
+              "value": "={{ $('Switch').item.json.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        -256
+      ],
+      "id": "41aa613a-bd38-427f-813b-493d22954ebb",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a6762c13-7b96-4ca3-a229-8b6570720268",
+              "name": "type",
+              "value": "={{ $('Switch').item.json.type }}",
+              "type": "string"
+            },
+            {
+              "id": "6c55b1bb-d38e-4819-8808-b8fc260d56e9",
+              "name": "url",
+              "value": "={{ $('Switch').item.json.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        -80
+      ],
+      "id": "c45e7eb4-723a-4821-9b84-4c54d055b69a",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2670b20a-b3e4-42fe-aab0-ff3ca7712a0d",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "insert",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1472,
+        -160
+      ],
+      "id": "d5a1c1ab-2b75-441a-a621-9eb2a1b4eec4",
+      "name": "is insert"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "type": "get_info",
+          "url": "https://www.youtube.com/watch?v=l5cfAEUiyV4",
+          "query": null
+        }
+      },
+      {
+        "json": {
+          "type": "download_video",
+          "url": "https://www.youtube.com/watch?v=l5cfAEUiyV4",
+          "query": null
+        }
+      },
+      {
+        "json": {
+          "type": "search",
+          "query": "AI"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "get1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "get2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "get2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_video_info": {
+      "main": [
+        [
+          {
+            "node": "fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update": {
+      "main": [
+        [
+          {
+            "node": "Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "insert": {
+      "main": [
+        [
+          {
+            "node": "Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "is insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search": {
+      "main": [
+        [
+          {
+            "node": "查询结果扁平",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Output1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "查询结果扁平": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get1": {
+      "main": [
+        [
+          {
+            "node": "is empty1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get2": {
+      "main": [
+        [
+          {
+            "node": "is empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "is empty1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "查询结果扁平",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download": {
+      "main": [
+        [
+          {
+            "node": "fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fields2": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "is empty": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "查询结果扁平",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "get_video_info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "is insert": {
+      "main": [
+        [
+          {
+            "node": "insert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "e70d008a-5eae-4937-ab7d-df0faa5a5035",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87c5468c68acc2763dd134022a22888a4c71833e945f0b8294dfe741e5a4ccc5"
+  },
+  "id": "DbmLm4SoJXGWVVcb",
+  "tags": []
+}

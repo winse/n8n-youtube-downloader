@@ -1,0 +1,467 @@
+{
+  "name": "YouTube视频下载器-v1",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('extracted_text').item.json.extracted_text }}",
+        "options": {
+          "systemMessage": "你是一个专业的视频/音频处理助手。你的任务是解析用户的自然语言需求，并调用相应的工具来完成操作。\n\n---\n操作规则：\n1、解析需求：首先判断用户是想要“获取信息”、“下载音频”还是“下载视频”。\n2、参数提取：从用户的输入中提取视频 URL，对URL进行去重。如果用户未提供 URL，请礼貌地询问。\n3、执行顺序：\n* 如果用户需求模糊（如“看看这个视频”）、或者只给了链接，先调用 get_video_info。\n* 如果明确要求下载，直接调用对应的下载工具。\n4、结果反馈：下载完成后，必须向用户报告：\n* 视频标题。\n* 文件存储的唯一目录路径。\n* 使用 os.listdir 得到的文件清单。\n* 提醒用户可以在飞书表格中查看记录。\n\n---\n错误处理协议：\n* 立即停止：如果调用的工具返回的结果中包含 \"status\": \"error\" 或任何错误描述，严禁尝试调用其他工具或重复调用。\n* 直接反馈：将工具返回的具体错误信息（message）原始地呈现给用户。\n* 禁止幻觉：不要尝试编造下载路径或文件清单。如果工具报错，请直接回答：“抱歉，执行过程中出现错误：[具体错误原因]”，并询问用户是否需要检查链接或重试。\n\n---\n严格按照格式要求返回结果。如果用户没有提供链接，从历史中获取；如果历史中获取不到，追问用户提供视频链接。\n\n---\nWhenever you use a tool, you MUST provide the 'url' parameter extracted from the user's message."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -2080,
+        -208
+      ],
+      "id": "834d5d08-188e-4467-a197-82e8fe19fda5",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "events": [
+          "im.message.receive_v1"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.larkTrigger",
+      "typeVersion": 2,
+      "position": [
+        -2912,
+        -208
+      ],
+      "id": "bcf32696-0f4c-4b2b-903a-6393a6bf19e4",
+      "name": "Lark Trigger",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        -2272,
+        0
+      ],
+      "id": "eebd8667-4c10-491d-8b65-05d5acda6cef",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "b4u0GNJGdE5kCvBE",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "用于获取视频的元数据（标题、发布日期、时长、封面图 URL）。当用户只想了解内容或作为下载前的确认时使用。",
+        "language": "python",
+        "pythonCode": "import yt_dlp\nimport json\n\n# 1. 提取 Agent 传入的 URL\ntry:\n    video_url = _query.get(\"url\") if isinstance(_query, dict) else _query\nexcept:\n    video_url = _query\n\nprint(video_url)\ndef main(url):\n    if not url or \"http\" not in str(url):\n        return json.dumps({\"status\": \"error\", \"message\": \"未提供有效的 URL\"}, ensure_ascii=False)\n\n    ydl_opts = {\n        'proxy': \"http://172.24.96.1:23333\",\n        'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n        'quiet': True,\n        'skip_download': True,\n    }\n    \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=False)\n            \n            # 2. 构造元数据字典\n            result = {\n                \"status\": \"success\",\n                \"title\": info.get(\"title\"),\n                \"uploader\": info.get(\"uploader\"),\n                \"duration\": info.get(\"duration\"),\n                \"duration_string\": info.get(\"duration_string\"),\n                \"upload_date\": info.get(\"upload_date\"),\n                \"thumbnail\": info.get(\"thumbnail\"),\n                \"url\": url\n            }\n            print(result)\n            \n            # 3. 关键：将字典序列化为字符串返回\n            text = json.dumps(result, ensure_ascii=False)\n            return text\n            \n    except Exception as e:\n        # 捕获 yt-dlp 报错（如网络问题或链接失效）\n        error_result = {\"status\": \"error\", \"message\": f\"获取信息失败: {str(e)}\"}\n        return json.dumps(error_result, ensure_ascii=False)\n\n# 执行函数并返回结果字符串\nreturn main(video_url)",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{ \"url\": \"string\" }"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -2016,
+        0
+      ],
+      "id": "b30d8d11-ce1a-4b20-83c3-03bb11901354",
+      "name": "get_video_info"
+    },
+    {
+      "parameters": {
+        "description": "下载最高画质的视频（含音频和字幕）。适用于用户明确要求“下载视频”或“看高清视频”时。文件同样存放于唯一的临时目录。",
+        "language": "python",
+        "pythonCode": "import yt_dlp\nimport json\nimport os\nimport uuid\n\n# 1. 提取 Agent 传入的参数\ntry:\n    # 兼容 _query 是字典或直接是字符串的情况\n    v_url = _query.get(\"url\") if isinstance(_query, dict) else _query\nexcept:\n    v_url = _query\n\nprint(v_url)\ndef main(url):\n    if not url or \"http\" not in str(url):\n        text = json.dumps({\"status\": \"error\", \"message\": \"无效的 URL\"}, ensure_ascii=False)\n        return text\n\n    # 2. 创建唯一存放目录\n    unique_id = str(uuid.uuid4())[:4]\n    ts = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    base_dir = f\"downloads/yt_audio_{ts}_{unique_id}\"\n    os.makedirs(base_dir, exist_ok=True)\n    \n    # 3. 配置 yt-dlp 参数 (下载最高画质视频)\n    ydl_opts = {\n        'proxy': \"http://172.24.96.1:23333\",\n        'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n        'format': 'bestvideo+bestaudio/best',  # 合并最佳视轨和音轨\n        'merge_output_format': 'mp4',          # 强制封装为 mp4\n        'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n        'windowsfilenames': True,    # 仅限制 Windows 不允许的特殊字符，但允许中文\n        'writesubtitles': True,                # 下载字幕\n        'subtitleslangs': ['zh-Hans', 'en'],\n        'writethumbnail': True,                # 下载封面\n    }\n    \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=True)\n            files = os.listdir(base_dir)\n            files.sort()\n            \n            # 4. 构造结果字典\n            result = {\n                \"status\": \"success\",\n                \"type\": \"video\",\n                \"title\": info.get(\"title\"),\n                \"directory\": base_dir,\n                \"files\": files,\n                \"url\": url\n            }\n            # 5. 返回 JSON 字符串\n            text = json.dumps(result, ensure_ascii=False)\n            return text\n            \n    except Exception as e:\n        error_result = {\"status\": \"error\", \"message\": f\"视频下载失败: {str(e)}\"}\n        text = json.dumps(error_result, ensure_ascii=False)\n        return text\n\n# 执行并返回\nreturn main(v_url)",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{ \"url\": \"string\" }"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -1888,
+        0
+      ],
+      "id": "d367f6ea-43ff-4394-a9bb-8229a8c7ef09",
+      "name": "download_video"
+    },
+    {
+      "parameters": {
+        "description": "下载视频中的音频流。默认下载最高音质，并配套下载封面图片和中英文字幕。文件将存放在一个唯一临时目录中。",
+        "language": "python",
+        "pythonCode": "import yt_dlp\nimport json\nimport os\nimport uuid\nimport traceback\n\n# 1. 从 Agent 传入的 _query 中提取 URL\ntry:\n    # 兼容 _query 是字典或直接是字符串的情况\n    v_url = _query.get(\"url\") if isinstance(_query, dict) else _query\nexcept:\n    v_url = _query\n\nprint(v_url)\ndef main(url):\n    if not url or \"http\" not in str(url):\n        text = json.dumps({\"status\": \"error\", \"message\": \"无效的 URL\"}, ensure_ascii=False)\n        return text\n\n    # 2. 创建唯一存放目录\n    unique_id = str(uuid.uuid4())[:4]\n    ts = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    base_dir = f\"downloads/yt_audio_{ts}_{unique_id}\"\n    os.makedirs(base_dir, exist_ok=True)\n    \n    # 3. 配置 yt-dlp 参数 (仅音频，不转码)\n    ydl_opts = {\n        'proxy': \"http://172.24.96.1:23333\",\n        'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n      \n        'format': 'bestaudio/best',             # 获取最佳音频流\n        'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n        #'restrictfilenames': True,\n        'windowsfilenames': True, # 仅限制 Windows 不允许的特殊字符，但允许中文\n        'noplaylist': True,\n      \n        'writesubtitles': True,                 # 下载字幕\n        'writeautomaticsub': True,              # 自动生成字幕\n        'subtitleslangs': ['zh-Hans', 'en'],\n      \n        #'writethumbnail': True,                 # 下载封面图\n        \n        # 必须加上 FFmpeg 提取，这样即使下回来的是 webm 也能转成 m4a\n        'postprocessors': [{\n            'key': 'FFmpegExtractAudio',\n            'preferredcodec': 'm4a',\n            'preferredquality': '192',\n        }],\n  \n        'extractor_args': {\n            'youtube': {\n                'player_client': ['android', 'web'],\n                # 增加这一行可以减少被识别为机器人的概率\n                'skip': ['dash', 'hls'],\n            }\n        },\n    }\n    \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            # 执行下载\n            info = ydl.extract_info(url, download=True)\n            \n            # 列出下载完成的文件\n            files = os.listdir(base_dir)\n            files.sort()\n            \n            # 4. 构造结果字典\n            result = {\n                \"status\": \"success\",\n                \"type\": \"audio\",\n                \"title\": info.get(\"title\"),\n                \"directory\": base_dir,\n                \"files\": files,\n                \"url\": url,\n                \"ext\": info.get(\"ext\")  # 原始后缀名\n            }\n            # 5. 返回 JSON 字符串\n            text = json.dumps(result, ensure_ascii=False)\n            return text\n            \n    except Exception as e:\n        # 捕获异常\n        error_full = traceback.format_exc()\n        print(error_full) # 依然输出到控制台\n        error_result = {\"status\": \"error\", \"message\": f\"音频下载失败: {str(e)}\"}\n        text = json.dumps(error_result, ensure_ascii=False)\n        return text\n\n# 运行函数并返回字符串给 Agent\nreturn main(v_url)",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{ \"url\": \"string\" }"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -1760,
+        0
+      ],
+      "id": "ac4baa02-1108-4006-ab44-f2a1540ed784",
+      "name": "dowload_audio"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n    // 1. 从输入中获取原始 content 字符串\n    // 假设路径是 $input.first().json.message.content\n    const rawContent = $('Lark Trigger').first().json.message.content;\n    \n    // 2. 解析 JSON 字符串\n    const contentObj = JSON.parse(rawContent);\n    \n    // 3. 提取 text 并清理首尾空格\n    const text = contentObj.text ? contentObj.text.trim() : \"\";\n    const hasUrl = /(https?:\\/\\/[^\\s]+)/g.test(text);\n\n    // 4. 返回全新的对象，不包含任何原始字段\n    return [{\n        json: {\n            extracted_text: text,\n            hasUrl: hasUrl\n        }\n    }];\n\n} catch (error) {\n    // 解析失败时的返回\n    return [{\n        json: {\n            extracted_text: \"\",\n            error: \"Parse Error: \" + error\n        }\n    }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2656,
+        -208
+      ],
+      "id": "93595eb5-56b8-4c93-a95a-420db5f0366b",
+      "name": "extracted_text"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('constants').item.json.cache_key }}",
+        "sessionTTL": "=0",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        -2144,
+        0
+      ],
+      "id": "70c33931-2476-49c8-8a19-cd452af8113a",
+      "name": "cache",
+      "credentials": {
+        "redis": {
+          "id": "i9Z6jZYbl14cKa7H",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "68d3904a-6d63-4652-8fd9-8887745b6823",
+              "name": "cache_key",
+              "value": "={{ $json.message.chat_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2784,
+        -208
+      ],
+      "id": "aea68211-9208-46d6-a603-70330c44ef86",
+      "name": "constants"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $('constants').item.json.cache_key }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -2368,
+        -288
+      ],
+      "id": "fc2f8b59-d696-423a-9594-47f77d5ee239",
+      "name": "clean cache",
+      "alwaysOutputData": false,
+      "credentials": {
+        "redis": {
+          "id": "i9Z6jZYbl14cKa7H",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b1793005-be50-4da9-bdb7-b91a15b3cada",
+              "leftValue": "={{ $json.hasUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2528,
+        -208
+      ],
+      "id": "f259e951-8678-4ff8-8b71-e322cfe7a78e",
+      "name": "If",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "receive_id_type": "chat_id",
+        "receive_id": {
+          "__rl": true,
+          "value": "={{ $('Lark Trigger').item.json.message.chat_id }}",
+          "mode": "id"
+        },
+        "msg_type": "interactive",
+        "content": "={{ JSON.stringify(\n{\n  \"config\": { \"wide_screen_mode\": true },\n  \"elements\": [\n    {\n      \"tag\": \"markdown\",\n      \"content\": $json.output\n    }\n  ]\n}\n) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        -1776,
+        -208
+      ],
+      "id": "b008f4f8-6696-46ff-b41a-fcd516e36650",
+      "name": "Send message",
+      "webhookId": "94ae0014-de15-4cc8-8d0a-d0aa5484f2e2",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "createRecord",
+        "app_token": {
+          "__rl": true,
+          "value": "AxGJbkUoIaQMfYsvbE5c9EW0n2d",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "tbl7vwkcKwB9O6ez",
+          "mode": "id"
+        },
+        "body": "={{ JSON.stringify(\n{\n\t\"fields\": {\n        \"execution_id\": $execution.id,\n        \"event_id\": $('Lark Trigger').item.json.event_id,\n\t\t\"open_id\": $('Lark Trigger').item.json.sender.sender_id.open_id,\n\t\t\"union_id\": $('Lark Trigger').item.json.sender.sender_id.union_id,\n\t\t\"create_time\": $('Lark Trigger').item.json.create_time,\n\t\t\"content\": $('extracted_text').item.json.extracted_text,\n\t\t\"response\": $json.output\n\t}\n} \n) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        -1776,
+        -368
+      ],
+      "id": "b6cda34e-9653-4582-993c-6bf9d7f7f773",
+      "name": "log",
+      "webhookId": "193d4399-bd2f-40df-94ef-512a051611ed",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2208,
+        -208
+      ],
+      "id": "81ac7ffc-3336-435f-acdc-9567c3d819bd",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "log",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lark Trigger": {
+      "main": [
+        [
+          {
+            "node": "constants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_video_info": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_video": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "dowload_audio": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extracted_text": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cache": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "constants": {
+      "main": [
+        [
+          {
+            "node": "extracted_text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "clean cache": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "clean cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "1e7acb4b-b14e-4234-b348-1dd0057e849d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87c5468c68acc2763dd134022a22888a4c71833e945f0b8294dfe741e5a4ccc5"
+  },
+  "id": "x3iUIlIRsmekXv-hAZ04-",
+  "tags": []
+}
