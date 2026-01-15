@@ -22,7 +22,7 @@ services:
       - N8N_RUNNERS_BROKER_PORT=5679
       - N8N_RUNNERS_AUTH_TOKEN=your-secret-here
       - N8N_NATIVE_PYTHON_RUNNER=true
-      - N8N_RUNNERS_TASK_TIMEOUT=600
+      - N8N_RUNNERS_TASK_TIMEOUT=7200
       - N8N_LOG_LEVEL=debug
       # - N8N_LOG_OUTPUT=console
       # - N8N_RUNNERS_TASK_REQUEST_TIMEOUT=120
@@ -40,7 +40,7 @@ services:
     environment:
       - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-main:5679
       - N8N_RUNNERS_AUTH_TOKEN=your-secret-here
-      - N8N_RUNNERS_TASK_TIMEOUT=600
+      - N8N_RUNNERS_TASK_TIMEOUT=7200
       - N8N_RUNNERS_LAUNCHER_LOG_LEVEL=debug
       - N8N_RUNNERS_STDLIB_ALLOW=*
       - N8N_RUNNERS_EXTERNAL_ALLOW=*
@@ -50,16 +50,16 @@ services:
       - videos_data:/home/runner/downloads:rw
       - ./cookies:/home/runner/cookies:rw
 
-  #nginx:
-  #  image: nginx:latest
-  #  container_name: nginx
-  #  networks:
-  #    - n8n-net
-  #  ports:
-  #    - "80:80"
-  #  volumes:
-  #    - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-  #    - videos_data:/var/www/html/videos:ro
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    networks:
+      - n8n-net
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - videos_data:/var/www/html/videos:ro
 
   # 辅助服务：专门用来初始化卷权限
   init-permissions:

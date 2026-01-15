@@ -145,7 +145,7 @@
     {
       "parameters": {
         "language": "pythonNative",
-        "pythonCode": "import yt_dlp\nimport json\n\n# 1. 提取 Agent 传入的 URL\ntry:\n    video_url = _items[0][\"json\"][\"url\"]\nexcept:\n    video_url = _items[0][\"json\"]\n\nprint(video_url)\ndef main(url):\n    if not url or \"http\" not in str(url):\n        return json.dumps({\"status\": \"error\", \"message\": \"未提供有效的 URL\"}, ensure_ascii=False)\n\n    ydl_opts = {\n        'proxy': \"http://172.24.96.1:23333\",\n        'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n        'quiet': True,\n        'skip_download': True,\n    }\n    \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=False)\n            \n            # 2. 构造元数据字典\n            result = {\n                \"status\": \"success\",\n                \"title\": info.get(\"title\"),\n                \"uploader\": info.get(\"uploader\"),\n                \"duration\": info.get(\"duration\"),\n                \"duration_string\": info.get(\"duration_string\"),\n                \"upload_date\": info.get(\"upload_date\"),\n                \"thumbnail\": info.get(\"thumbnail\"),\n                \"url\": url\n            }\n            print(result)\n            \n            # 3. 关键：将字典序列化为字符串返回\n            # text = json.dumps(result, ensure_ascii=False)\n            return [ {\"json\": result }]\n            \n    except Exception as e:\n        # 捕获 yt-dlp 报错（如网络问题或链接失效）\n        error_result = {\"status\": \"error\", \"message\": f\"获取信息失败: {str(e)}\"}\n        # return json.dumps(error_result, ensure_ascii=False)\n        return [ {\"json\": error_result } ]\n\n# 执行函数并返回结果字符串\nreturn main(video_url)"
+        "pythonCode": "import yt_dlp\nimport json\n\n# 1. 提取 Agent 传入的 URL\ntry:\n    video_url = _items[0][\"json\"][\"url\"]\nexcept:\n    video_url = _items[0][\"json\"]\n\n# print(video_url)\ndef main(url):\n    if not url or \"http\" not in str(url):\n        return json.dumps({\"status\": \"error\", \"message\": \"未提供有效的 URL\"}, ensure_ascii=False)\n\n    ydl_opts = {\n        'proxy': \"http://172.24.96.1:23333\",\n        'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n        'quiet': True,\n        'skip_download': True,\n    }\n    \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=False)\n            # print(info)\n            \n            # 2. 构造元数据字典\n            result = {\n                \"status\": \"success\",\n                \"title\": info.get(\"title\"),\n                \"description\": info.get(\"description\"),\n                \"uploader\": info.get(\"uploader\"),\n                \"duration\": info.get(\"duration\"),\n                \"duration_string\": info.get(\"duration_string\"),\n                \"upload_date\": info.get(\"upload_date\"),\n                \"thumbnail\": info.get(\"thumbnail\"),\n                \"url\": url\n            }\n            # print(result)\n            \n            # text = json.dumps(result, ensure_ascii=False)\n            return [ {\"json\": result }]\n            \n    except Exception as e:\n        error_result = {\"status\": \"error\", \"message\": f\"获取信息失败: {str(e)}\"}\n        return [ {\"json\": error_result } ]\n\n# 执行函数并返回结果字符串\nreturn main(video_url)"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -170,7 +170,7 @@
           "value": "tblC1PqddPncaRPu",
           "mode": "id"
         },
-        "record_id": "={{ $json.items[0].record_id }}",
+        "record_id": "={{ $json.record_id }}",
         "body": "={\n\"fields\": {{ $('Merge').item.json.fields.toJsonString() }}\n}",
         "options": {}
       },
@@ -379,8 +379,8 @@
       "type": "n8n-nodes-feishu-lark.lark",
       "typeVersion": 1,
       "position": [
-        576,
-        -240
+        672,
+        -256
       ],
       "id": "e8e991e7-7fe3-4006-82c7-c33aa054a0eb",
       "name": "get1",
@@ -427,42 +427,8 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "c493a325-05ba-4f02-bf34-c7ad9c0131b4",
-              "leftValue": "={{ $json.items }}",
-              "rightValue": "",
-              "operator": {
-                "type": "array",
-                "operation": "empty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        704,
-        -240
-      ],
-      "id": "6a5d83c0-63a1-4e80-8b27-3f84ec8b6ff2",
-      "name": "is empty1"
-    },
-    {
-      "parameters": {
         "language": "pythonNative",
-        "pythonCode": "import yt_dlp\nimport json\nimport os\nimport uuid\n\nfrom datetime import datetime\n\n# 1. 提取 Agent 传入的 URL\ntry:\n    video_url = _items[0][\"json\"][\"url\"]\n    action = _items[0][\"json\"][\"type\"]\nexcept:\n    video_url = _items[0][\"json\"]\n    action = \"download_video\"\n\nprint(video_url)\n\ndef main(url):\n    if not url or \"http\" not in str(url):\n        text = json.dumps({\"status\": \"error\", \"message\": \"无效的 URL\"}, ensure_ascii=False)\n        return text\n\n    # 2. 创建唯一存放目录\n    unique_id = str(uuid.uuid4())[:4]\n    ts = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    base_dir = f\"downloads/yt_audio_{ts}_{unique_id}\"\n    os.makedirs(base_dir, exist_ok=True)\n    \n    # 3. 配置 yt-dlp 参数 (下载最高画质视频)\n    if action == \"download_video\":\n        ydl_opts = {\n            'proxy': \"http://172.24.96.1:23333\",\n            'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n            'format': 'bestvideo+bestaudio/best',  # 合并最佳视轨和音轨\n            'merge_output_format': 'mp4',          # 强制封装为 mp4\n            'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n            'windowsfilenames': True,    # 仅限制 Windows 不允许的特殊字符，但允许中文\n            'writesubtitles': True,                # 下载字幕\n            'subtitleslangs': ['zh-Hans', 'en'],\n            'writethumbnail': True,                # 下载封面\n        }\n    else:\n        # 3. 配置 yt-dlp 参数 (仅音频，不转码)\n        ydl_opts = {\n            'proxy': \"http://172.24.96.1:23333\",\n            'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n          \n            'format': 'bestaudio/best',             # 获取最佳音频流\n            'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n            #'restrictfilenames': True,\n            'windowsfilenames': True, # 仅限制 Windows 不允许的特殊字符，但允许中文\n            'noplaylist': True,\n          \n            'writesubtitles': True,                 # 下载字幕\n            'writeautomaticsub': True,              # 自动生成字幕\n            'subtitleslangs': ['zh-Hans', 'en'],\n          \n            #'writethumbnail': True,                 # 下载封面图\n            \n            # 必须加上 FFmpeg 提取，这样即使下回来的是 webm 也能转成 m4a\n            'postprocessors': [{\n                'key': 'FFmpegExtractAudio',\n                'preferredcodec': 'm4a',\n                'preferredquality': '192',\n            }],\n      \n            'extractor_args': {\n                'youtube': {\n                    'player_client': ['android', 'web'],\n                    # 增加这一行可以减少被识别为机器人的概率\n                    'skip': ['dash', 'hls'],\n                }\n            },\n        }\n        \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=True)\n            files = os.listdir(base_dir)\n            files.sort()\n            \n            # 4. 构造结果字典\n            result = {\n                \"status\": \"success\",\n                \"uploader\": info.get(\"uploader\"),\n                \"duration\": info.get(\"duration\"),\n                \"duration_string\": info.get(\"duration_string\"),\n                \"upload_date\": info.get(\"upload_date\"),\n                \"thumbnail\": info.get(\"thumbnail\"),\n                \"type\": action,\n                \"title\": info.get(\"title\"),\n                \"directory\": base_dir,\n                \"files\": files,\n                \"url\": url,\n                \"ext\": info.get(\"ext\")  # 原始后缀名\n            }\n            # 5. 返回 JSON 字符串\n            #text = json.dumps(result, ensure_ascii=False)\n            return [ {\"json\": result } ]\n            \n    except Exception as e:\n        error_result = {\"status\": \"error\", \"message\": f\"视频下载失败: {str(e)}\"}\n        #text = json.dumps(error_result, ensure_ascii=False)\n        return [ {\"json\": error_result } ]\n\n# 执行并返回\nreturn main(video_url)"
+        "pythonCode": "import yt_dlp\nimport json\nimport os\nimport uuid\n\nfrom datetime import datetime\n\n# 1. 提取 Agent 传入的 URL\ntry:\n    video_url = _items[0][\"json\"][\"url\"]\n    action = _items[0][\"json\"][\"type\"]\nexcept:\n    video_url = _items[0][\"json\"]\n    action = \"download_video\"\n\n# print(video_url)\n\ndef main(url):\n    if not url or \"http\" not in str(url):\n        text = json.dumps({\"status\": \"error\", \"message\": \"无效的 URL\"}, ensure_ascii=False)\n        return text\n\n    # 2. 创建唯一存放目录\n    unique_id = str(uuid.uuid4())[:4]\n    ts = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    base_dir = f\"downloads/yt_{ts}_{unique_id}\"\n    os.makedirs(base_dir, exist_ok=True)\n    \n    # 3. 配置 yt-dlp 参数 (下载最高画质视频)\n    if action == \"download_video\":\n        ydl_opts = {\n            'proxy': \"http://172.24.96.1:23333\",\n            'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n            'format': 'bestvideo+bestaudio/best',  # 合并最佳视轨和音轨\n            'merge_output_format': 'mp4',          # 强制封装为 mp4\n            'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n            'windowsfilenames': True,    # 仅限制 Windows 不允许的特殊字符，但允许中文\n            'writesubtitles': True,                # 下载字幕\n            'subtitleslangs': ['zh-Hans', 'en'],\n            'writethumbnail': True,                # 下载封面\n        }\n    else:\n        # 3. 配置 yt-dlp 参数 (仅音频，不转码)\n        ydl_opts = {\n            'proxy': \"http://172.24.96.1:23333\",\n            'cookiefile': 'cookies/www.youtube.com_cookies.txt',\n          \n            'format': 'bestaudio/best',             # 获取最佳音频流\n            'outtmpl': f'{base_dir}/%(title)s.%(ext)s',\n            #'restrictfilenames': True,\n            'windowsfilenames': True, # 仅限制 Windows 不允许的特殊字符，但允许中文\n            'noplaylist': True,\n          \n            'writesubtitles': True,                 # 下载字幕\n            'writeautomaticsub': True,              # 自动生成字幕\n            'subtitleslangs': ['zh-Hans', 'en'],\n          \n            #'writethumbnail': True,                 # 下载封面图\n            \n            # 必须加上 FFmpeg 提取，这样即使下回来的是 webm 也能转成 m4a\n            'postprocessors': [{\n                'key': 'FFmpegExtractAudio',\n                'preferredcodec': 'm4a',\n                'preferredquality': '192',\n            }],\n      \n            'extractor_args': {\n                'youtube': {\n                    'player_client': ['android', 'web'],\n                    # 增加这一行可以减少被识别为机器人的概率\n                    'skip': ['dash', 'hls'],\n                }\n            },\n        }\n        \n    try:\n        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n            info = ydl.extract_info(url, download=True)\n            files = os.listdir(base_dir)\n            files.sort()\n            \n            # 4. 构造结果字典\n            result = {\n                \"status\": \"success\",\n                \"uploader\": info.get(\"uploader\"),\n                \"duration\": info.get(\"duration\"),\n                \"duration_string\": info.get(\"duration_string\"),\n                \"upload_date\": info.get(\"upload_date\"),\n                \"thumbnail\": info.get(\"thumbnail\"),\n                \"type\": action,\n                \"title\": info.get(\"title\"),\n                \"description\": info.get(\"description\"),\n                \"directory\": base_dir,\n                \"files\": files,\n                \"url\": url,\n                \"ext\": info.get(\"ext\")  # 原始后缀名\n            }\n            # 5. 返回 JSON 字符串\n            #text = json.dumps(result, ensure_ascii=False)\n            return [ {\"json\": result } ]\n            \n    except Exception as e:\n        error_result = {\"status\": \"error\", \"message\": f\"视频下载失败: {str(e)}\"}\n        return [ {\"json\": error_result } ]\n\n# 执行并返回\nreturn main(video_url)"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -476,7 +442,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={\n\"action\": \"insert\",\n\"fields\": {\n  \"视频URL\": \"{{ $json.url }}\",\n  \"视频标题\": \"{{ $json.title }}\",\n  \"视频时长\": \"{{ $json.duration_string }}\",\n  \"duration\": {{ $json.duration }},\n  \"创建人\": \"{{ $json.uploader }}\",\n  \"创建时间\": \"{{ $json.upload_date }}\"\n}\n}",
+        "jsonOutput": "={\n\"action\": \"{{ $('get1').item.json.items.isEmpty() ? \"insert\" : \"update\" }}\",\n\"record_id\": \"{{ $('get1').item.json.items[0].record_id }}\",\n\"fields\": {\n  \"视频URL\": \"{{ $json.url }}\",\n  \"视频标题\": \"{{ $json.title }}\",\n  \"视频描述\": \"{{ $json.description }}\",\n  \"视频时长\": \"{{ $json.duration_string }}\",\n  \"duration\": {{ $json.duration }},\n  \"创建人\": \"{{ $json.uploader }}\",\n  \"创建时间\": \"{{ $json.upload_date }}\"\n}\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -491,7 +457,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={\n\"action\": \"{{ $('get2').item.json.items.isEmpty() ? \"insert\" : \"update\" }}\",\n\"record_id\": \"{{ $('get2').item.json.items[0].record_id }}\",\n\"fields\": {\n  \"视频URL\": \"{{ $json.url }}\",\n  \"视频标题\": \"{{ $json.title }}\",\n  \"视频时长\": \"{{ $json.duration_string }}\",\n  \"duration\": {{ $json.duration }},\n  \"创建人\": \"{{ $json.uploader }}\",\n  \"创建时间\": \"{{ $json.upload_date }}\",\n  \"本地保存路径\": \"{{ $json.files.map(f => $json.directory + \"/\" + f).join(\"\\n\") }}\",\n  \"下载时间\": \"{{ $now.toISO() }}\"\n}\n}",
+        "jsonOutput": "={\n\"action\": \"{{ $('get2').item.json.items.isEmpty() ? \"insert\" : \"update\" }}\",\n\"record_id\": \"{{ $('get2').item.json.items[0].record_id }}\",\n\"fields\": {\n  \"视频URL\": \"{{ $json.url }}\",\n  \"视频标题\": \"{{ $json.title }}\",\n  \"视频描述\": \"{{ $json.description }}\",\n  \"视频时长\": \"{{ $json.duration_string }}\",\n  \"duration\": {{ $json.duration }},\n  \"创建人\": \"{{ $json.uploader }}\",\n  \"创建时间\": \"{{ $json.upload_date }}\",\n  \"本地保存路径\": \"{{ $json.files.map(f => $json.directory + \"/\" + f).join(\"\\n\") }}\",\n  \"下载时间\": \"{{ $now.toISO() }}\"\n}\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -644,14 +610,14 @@
       {
         "json": {
           "type": "get_info",
-          "url": "https://www.youtube.com/watch?v=l5cfAEUiyV4",
+          "url": "https://www.youtube.com/watch?v=FGLlWLxfH-c",
           "query": null
         }
       },
       {
         "json": {
           "type": "download_video",
-          "url": "https://www.youtube.com/watch?v=l5cfAEUiyV4",
+          "url": "https://www.youtube.com/watch?v=FGLlWLxfH-c",
           "query": null
         }
       },
@@ -788,7 +754,7 @@
       "main": [
         [
           {
-            "node": "is empty1",
+            "node": "Edit Fields",
             "type": "main",
             "index": 0
           }
@@ -800,24 +766,6 @@
         [
           {
             "node": "is empty",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "is empty1": {
-      "main": [
-        [
-          {
-            "node": "Edit Fields",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "查询结果扁平",
             "type": "main",
             "index": 0
           }
@@ -921,7 +869,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "e70d008a-5eae-4937-ab7d-df0faa5a5035",
+  "versionId": "06ca871c-0f0b-4dba-926e-634010bd6b80",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "87c5468c68acc2763dd134022a22888a4c71833e945f0b8294dfe741e5a4ccc5"

@@ -1,0 +1,775 @@
+{
+  "name": "YouTube播放列表视频下载",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "playlistItem",
+        "operation": "getAll",
+        "playlistId": "={{ $json.id }}",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "c42b9ebe-ac0b-456f-8e4c-18f9450842a5",
+      "name": "Get all item",
+      "type": "n8n-nodes-base.youTube",
+      "position": [
+        -208,
+        48
+      ],
+      "retryOnFail": false,
+      "typeVersion": 1,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "47FrG9Q4scCo1zkp",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "playlist",
+        "operation": "get",
+        "playlistId": "={{ $json.list }}",
+        "options": {}
+      },
+      "id": "924b1bfc-4f99-482c-906d-76c95944f432",
+      "name": "Get playlist",
+      "type": "n8n-nodes-base.youTube",
+      "position": [
+        -400,
+        -144
+      ],
+      "retryOnFail": true,
+      "typeVersion": 1,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "47FrG9Q4scCo1zkp",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "708e188b-718c-4f26-a422-e2e04c1a5b84",
+              "name": "list",
+              "value": "={{ $json.chatInput.match(/[?&]list=([^&]+)/)?.[1] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        -144
+      ],
+      "id": "f5db2f0c-3889-4e62-8a42-b838a494808a",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "updateRecord",
+        "app_token": {
+          "__rl": true,
+          "value": "={{ $('feishu_upsert').item.json.app }}",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "={{ $('feishu_upsert').item.json.table }}",
+          "mode": "id"
+        },
+        "record_id": "={{ $json.record_id }}",
+        "body": "={\n\"fields\": {{ $('Merge').item.json.fields.toJsonString() }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -464
+      ],
+      "id": "b2d0679f-b1cd-4e73-8b58-e4182113cddf",
+      "name": "update",
+      "webhookId": "193d4399-bd2f-40df-94ef-512a051611ed",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "searchRecords",
+        "app_token": {
+          "__rl": true,
+          "value": "={{ $json.app }}",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "={{ $json.table }}",
+          "mode": "id"
+        },
+        "body": "={\n\t\"automatic_fields\": false,\n    \"fields\": [],\n\t\"filter\": {\n\t\t\"conditions\": [\n\t\t\t{\n\t\t\t\t\"field_name\": \"{{ $('feishu_upsert').item.json.keyColumn }}\",\n\t\t\t\t\"operator\": \"is\",\n\t\t\t\t\"value\": [\n\t\t\t\t\t\"{{ $('feishu_upsert').item.json.fields[ $('feishu_upsert').item.json.keyColumn ] }}\"\n\t\t\t\t]\n\t\t\t}\n\t\t],\n\t\t\"conjunction\": \"and\"\n\t}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        -480
+      ],
+      "id": "e6ff1715-6519-41e1-971c-ca5a5e61f3f9",
+      "name": "get1",
+      "webhookId": "c11d69e2-4b19-4bca-81d6-68b03e97e68f",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2670b20a-b3e4-42fe-aab0-ff3ca7712a0d",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "insert",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        -480
+      ],
+      "id": "5f6a995c-3fbf-4801-99de-2bd33a2a57e4",
+      "name": "is insert"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n\"action\": \"{{ $('get1').item.json.items.isEmpty() ? \"insert\" : \"update\" }}\",\n\"record_id\": \"{{ $('get1').item.json.items[0].record_id }}\",\n\"fields\": {{ $('feishu_upsert').item.json.fields }}\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -112,
+        -480
+      ],
+      "id": "895e6bad-2e0e-4806-86d8-3534e4ba570f",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "resource": "base",
+        "operation": "createRecord",
+        "app_token": {
+          "__rl": true,
+          "value": "={{ $('feishu_upsert').item.json.app }}",
+          "mode": "id"
+        },
+        "table_id": {
+          "__rl": true,
+          "value": "={{ $('feishu_upsert').item.json.table }}",
+          "mode": "id"
+        },
+        "body": "={\n\"fields\": {{ $('Merge').item.json.fields.toJsonString() }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-feishu-lark.lark",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -608
+      ],
+      "id": "81c3529a-680e-4397-96b7-46c1a8a5003f",
+      "name": "insert",
+      "webhookId": "193d4399-bd2f-40df-94ef-512a051611ed",
+      "credentials": {
+        "larkApi": {
+          "id": "Di5S1lJsbGV9p2Es",
+          "name": "YouTube视频下载"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "keyColumn"
+            },
+            {
+              "name": "fields",
+              "type": "any"
+            },
+            {
+              "name": "app"
+            },
+            {
+              "name": "table"
+            }
+          ]
+        }
+      },
+      "id": "7fbb71e7-dfec-47f2-b74e-e1932ba0c9e7",
+      "typeVersion": 1.1,
+      "name": "feishu_upsert",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -368,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $workflow.id }}",
+          "mode": "id",
+          "cachedResultUrl": "/workflow/=%7B%7B%20$workflow.id%20%7D%7D"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "keyColumn": "playlist",
+            "fields": "={{ $json.fields }}",
+            "table": "tblZ9qNenaArmloV",
+            "app": "AxGJbkUoIaQMfYsvbE5c9EW0n2d"
+          },
+          "matchingColumns": [
+            "id",
+            "snippet_thumbnails_maxres_url",
+            "contentDetails_itemCount",
+            "snippet_description",
+            "snippet_title"
+          ],
+          "schema": [
+            {
+              "id": "keyColumn",
+              "displayName": "keyColumn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "fields",
+              "displayName": "fields",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "app",
+              "displayName": "app",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "table",
+              "displayName": "table",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        -144
+      ],
+      "name": "upsert playlist",
+      "id": "25cfff3a-1a6f-4725-92c3-210369e902fd"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"fields\": {\n\"playlist\": \"{{ $json.id }}\",\n\"描述\": \"{{ $json.snippet.description }}\",\n\"名称\": \"{{ $json.snippet.title }}\",\n\"缩略图\": \"{{ $json.snippet.thumbnails.maxres.url }}\",\n\"视频个数\": \"{{ $json.contentDetails.itemCount }}\"\n}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -208,
+        -144
+      ],
+      "id": "2ede41f7-01e6-452e-a4c1-48f222a6386f",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"fields\": {\n\"videoId\": \"{{ $json.contentDetails.videoId }}\",\n\"title\": \"{{ $json.snippet.title }}\",\n\"description\": \"{{ $json.snippet.description }}\",\n\"thumbnail\": \"{{ $json.snippet.thumbnails.maxres.url }}\",\n\"channelTitle\": \"{{ $json.snippet.channelTitle }}\",\n\"channelId\": \"{{ $json.snippet.channelId }}\",\n\"publishedAt\": \"{{ $json.snippet.publishedAt }}\",\n\"playlistId\": \"{{ $json.snippet.playlistId }}\",\n\"position\": \"{{ $json.snippet.position }}\"\n}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        64
+      ],
+      "id": "ddb54def-e66e-463d-b512-ec1272b8976a",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $workflow.id }}",
+          "mode": "id",
+          "cachedResultUrl": "/workflow/=%7B%7B%20$workflow.id%20%7D%7D"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "keyColumn": "videoId",
+            "fields": "={{ $json.fields }}",
+            "table": "tbltPk5Cj7FQAsTv",
+            "app": "AxGJbkUoIaQMfYsvbE5c9EW0n2d"
+          },
+          "matchingColumns": [
+            "id",
+            "snippet_thumbnails_maxres_url",
+            "contentDetails_itemCount",
+            "snippet_description",
+            "snippet_title"
+          ],
+          "schema": [
+            {
+              "id": "keyColumn",
+              "displayName": "keyColumn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "fields",
+              "displayName": "fields",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "app",
+              "displayName": "app",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "table",
+              "displayName": "table",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        64
+      ],
+      "name": "upsert item",
+      "id": "ec913071-0cb6-468d-af6c-df8e57665cc0"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "369613a8-c9f7-41cf-ae7d-8e4f828bb903",
+              "leftValue": "={{ $json.status.privacyStatus }}",
+              "rightValue": "private",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -80,
+        48
+      ],
+      "id": "b8711551-6d2e-441e-bf94-1e6ac8415eb7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -656,
+        -144
+      ],
+      "id": "8dd28b73-10e0-43a9-9e3e-d8eb8b00d603",
+      "name": "When chat message received",
+      "webhookId": "4909aea9-511e-4a4b-b7ea-cb02514d2339"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c3307fd0-e9f2-476a-9aaa-66e5c21bc11c",
+              "name": "itemCount",
+              "value": "={{ $('Get playlist').item.json.contentDetails.itemCount }}",
+              "type": "number"
+            },
+            {
+              "id": "30f3d760-fe26-4250-9b13-26e29b5dee0c",
+              "name": "successCount",
+              "value": "={{ $json.items.length }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        256
+      ],
+      "id": "1dbcc5bf-f6a5-496c-98e2-d0f06043a506",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        400,
+        64
+      ],
+      "id": "27824558-373c-4b28-8eba-287a72b927b4",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "content": "#### 输入一个YouTube播放列表的一个视频的地址\n",
+        "height": 80,
+        "width": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        -240
+      ],
+      "id": "b6b6c7a7-3357-469f-ba0d-9de9e62cfe33",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## 飞书保存子工作流\nKey字段的值存在就保存，不存在就新增。",
+        "height": 304,
+        "width": 816
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        -624
+      ],
+      "id": "eb8d95d0-4edb-438f-9e94-b55e1ca3ae97",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "uuEADiLmFrvhpeZldHg-i",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/uuEADiLmFrvhpeZldHg-i",
+          "cachedResultName": "YouTube播放列表视频下载的子流程"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        256
+      ],
+      "id": "fcabca06-9046-467d-9e08-25724a1b39b9",
+      "name": "调用子流程下载视频"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get playlist": {
+      "main": [
+        [
+          {
+            "node": "Get all item",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Get playlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "is insert": {
+      "main": [
+        [
+          {
+            "node": "insert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "is insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "feishu_upsert": {
+      "main": [
+        [
+          {
+            "node": "get1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "upsert playlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "upsert item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get all item": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upsert item": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "调用子流程下载视频",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        []
+      ]
+    },
+    "调用子流程下载视频": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "9950c43d-7d74-4419-9fb6-3e8b4edbad7c",
+  "meta": {
+    "instanceId": "87c5468c68acc2763dd134022a22888a4c71833e945f0b8294dfe741e5a4ccc5"
+  },
+  "id": "gIy4g2tyYCNGr4lrYtYBq",
+  "tags": []
+}
